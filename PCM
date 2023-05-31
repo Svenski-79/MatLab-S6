@@ -1,0 +1,83 @@
+clc;
+clear;
+close all;
+
+timeDur = 0.002;
+fc = 2000;
+fs = 2000000;
+Ts = 1/fs;
+N = timeDur*fs;
+n = 1:N;
+
+sampleSine = 2+2*sin(2*pi*fc/fs*n);
+figure(1)
+plot(sampleSine)
+xlabel("time in Sec")
+ylabel('amplitude')
+title('sinewave')
+signalPower = (1/N)*sum(sampleSine.^2);
+
+for i = 1:10
+    vMax = max(sampleSine);
+    vMin = min(sampleSine);
+    delta = (vMax-vMin)/(2^i);
+    levels = 2^i;
+    q1 = floor(sampleSine./delta)*delta;
+    q2 = (q1+(delta/2));
+    maxLvl = vMax-(delta/2);
+    qSine = min(q2,maxLvl);
+
+
+    figure(2)
+    plot(qSine)
+    title("quantized wave")
+    xlabel('time')
+    ylabel('quantized value')
+    qError = abs(sampleSine - qSine);
+    noisePower = (1/N)*sum(qError.^2);
+    SnrDb(i) = 10*log10(signalPower/noisePower);
+
+    if i==5
+        quantNew = qSine;
+        step = (quantNew - (delta/2))/delta;
+        stepBin = dec2bin(step,i)-48;
+    end
+end
+bits = 1:10;
+figure(3)
+plot(bits,SnrDb)
+title("number of bits vs snr in DB")
+xlabel('number of bits')
+ylabel('amplitude')
+
+nrz =[];
+nrz = 2*(2*stepBin-1);
+nrzt = nrz.';
+nrzRow = reshape(nrzt,1,[]);
+figure(4)
+stem(nrzRow(1:50))
+title('enclosed signal of bit 5')
+xlabel('time in sec')
+ylabel('amplitude')
+
+decode = zeros(1,length(nrzRow));
+for i =1:length(nrzRow)
+
+    if nrzRow(i)>0
+        decode(i) = 1;
+    else
+        decode(i)=0;
+    end
+end
+decRow = reshape(decode,5,[]);
+decCol = decRow.';
+bit = [16;8;4;2;1];
+decodeSignal = decCol*bit;
+
+figure(5)
+stairs(decodeSignal(1:2000));
+xlabel("time in sec")
+ylabel('amplitude')
+title('decoded signal of bit 5')
+
+
