@@ -1,0 +1,149 @@
+clc;
+close all;
+clear;
+
+bitLength  = 4000;
+pairUp = 2000;
+RollOffFactor = 0.5;
+Tb = 0.00004;
+Rb = 1/Tb;
+Fs = 200000;
+Ts = 1/Fs;
+
+p = SRRC_Pulse(Fs,RollOffFactor,Rb);
+figure(1)
+plot(p);
+title("SRRC with Roll Off Factor 0.5")
+xlabel("t")
+ylabel("p(t)")
+
+Nsim = 80;
+OversampleFactor = ceil(Fs*Tb);
+plotDb = 10;
+EbyNRange = 3:12;
+k=1;
+BER = zeros(1,length(EbyNRange));
+
+
+for ENDb = EbyNRange
+	bitError = 0;
+    for index = 1:Nsim
+
+	    txBit = randi([0,1],1,bitLength);
+	    bits = reshape(txBit,2,[]);
+	    QPSKSig = zeros(1,pairUp);
+	    check = [1 1 0 0;1 0 1 0];
+    
+	    for idx1 = 1:(bitLength/2)
+		    
+		    if bits(:,idx1)==check(:,1)
+		    QPSKSig(idx1) = exp(1j*pi/4);
+		    end
+    
+		    if bits(:,idx1)==check(:,2)
+		    QPSKSig(idx1) = exp(-1j*pi/4);
+		    end
+    
+		    if bits(:,idx1)==check(:,3)
+		    QPSKSig(idx1) = exp(1j*3*pi/4);
+		    end
+    
+		    if bits(:,idx1)==check(:,4)
+		    QPSKSig(idx1) = exp(-1j*3*pi/4);
+		    end
+	    end
+
+	upsampleBit = upsample(QPSKSig,OversampleFactor);
+	txnSig = conv(upsampleBit,p);
+
+	     if ENDb == plotDb && index ==1
+	    figure(2)
+	    plot(real(QPSKSig),imag(QPSKSig),'r*');
+	    grid on;
+	    title("Transmitter QPSK Constellation for 10Db SNR")
+       
+      end
+
+	Es = sum(p.^2)*Ts;
+
+	Eb = Es/2;
+
+	N = length(txnSig);
+
+	gaussSamp = randn(1,N) + 1j*randn(1,N);
+
+	snrLin = 10^(ENDb/10);
+	N0 = Eb/snrLin;
+
+    noisePower = (N0/2)*Fs;
+
+    noiseSig = gaussSamp.*sqrt(noisePower);
+
+    rxnSig = txnSig + noiseSig;
+
+    RC = conv(p,p);
+    [peak,idx] = max(abs(RC));
+
+    matchResp = conv(rxnSig,p);
+
+    normaFilter = matchResp/peak;
+
+    value = zeros(1,pairUp);
+
+    for idx2 = 0:(bitLength/2) - 1 
+        value(idx2+1) = normaFilter(idx+(idx2*OversampleFactor));
+    end
+
+    decodedSig = zeros(2,pairUp);
+
+    for idx2 = 1:(bitLength/2)
+        if ceil(real(value(idx2)))>0
+            if ceil(imag(value(idx2)))>0
+                decodedSig(:,idx2)=[1;1];
+            else
+                decodedSig(:,idx2)=[1;0];
+            end
+        else
+            if ceil(imag(value(idx2)))>0
+                decodedSig(:,idx2)=[0;1];
+            end
+        end
+    end
+
+    if ENDb ==plotDb && index ==1
+        figure(3)
+        plot(real(value),imag(value),'k*');
+        grid on;
+        title("Reciever QPSK Constellation for 10dB SNR")
+    end
+    rxnBit = reshape(decodedSig,1,[]);
+    error = (rxnBit~=txBit);
+    bitError = bitError+sum(error);
+    end
+    BER(k)= bitError/(Nsim*bitLength);
+    k=k+1;
+ end
+
+    snrLin = 10.^(EbyNRange/10);
+
+    theoryBer = 0.5*erfc(sqrt(snrLin));
+
+    disp('Practical Ber');
+    disp(BER)
+
+    disp("Theroretical BER")
+    disp(theoryBer)
+    
+    figure(4)
+    semilogy(EbyNRange,BER,'b*-','LineWidth',1);
+    grid on;
+    hold on;
+
+
+    semilogy(EbyNRange,theoryBer,'r*-','LineWidth',1);
+    grid on;
+
+    title("BER vs Eb/N0 curve for QPSK Modulation")
+    xlabel('Eb/N0');
+    ylabel('BER');
+    legend('Practical','Theory');
