@@ -1,0 +1,74 @@
+clc;
+clear ;
+close all;
+
+color=['b','r','g','c','k'];
+alphaValues=[0.3 0.5 0.7 0.9 1];
+
+nfft = 1000;
+k = -(nfft/2 - 1):nfft/2;
+
+rb = 25000;
+FS = 8*rb;
+fk = (FS/nfft).*k;
+tb = 1/rb;
+ts = 1/FS;
+nsamp = ceil(5*tb*FS);
+t = [-nsamp:nsamp]*ts;
+j=1;
+
+for alpha = alphaValues
+
+    res = SRRC_Pulse(FS,alpha,rb);
+    rc = conv(res,res);
+    rc_f=fftshift(fft(rc,nfft));
+    rc_mag = 20*log(abs(rc_f));
+    figure(1)
+    plot(t,res,color(j));
+    title('square root raised cosine')
+    xlabel('p(t)')
+    ylabel('t')
+    hold on;
+ 
+    figure(2)
+    plot(rc,color(j));
+    title('raised cosine')
+    xlabel('p(t)')
+    ylabel('t')
+    hold on;
+
+    figure(3)
+    plot(fk,rc_mag);
+    title('raised cosine magnitude plot')
+    ylabel('magnitude of rc in db')
+    xlabel('frequency in hz')
+    hold on;
+    j = j+1;
+end
+figure(1)
+legend('0.3','0.5','0.7','0.9','1');
+figure(2)
+legend('0.3','0.5','0.7','0.9','1');
+figure(1)
+legend('0.3','0.5','0.7','0.9','1');
+
+
+%part-B
+
+oversamplingFactor = 8;
+alpha = 0.4;
+
+inputBit = 2*randi([0,1],1,15)-1;
+inputBitOs = upsample(inputBit,oversamplingFactor);
+
+pt = SRRC_Pulse(FS,alpha,rb);
+
+op_srrc = conv(inputBitOs,pt);
+figure(4)
+plot(op_srrc);
+title("Response of SRRC Filter")
+xlabel('Sample')
+ylabel('Amplitude')
+
+
+
