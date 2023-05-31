@@ -1,0 +1,21 @@
+function [p] = SRRC_Pulse(fs,roll_off,rb)
+a = roll_off;
+tb = 1/rb;
+nsamp = ceil(5*tb*fs);
+ts = 1/fs;
+t = [-nsamp:nsamp]*ts;
+p=zeros(1,length(t));
+for i = 1:1:length(t)
+    if t(i)==0
+        p(i) = 1-a+(4*a)/pi;
+    else
+        if t(i) == tb/(4*a) || t(i) == -1*tb/(4*a)
+            p(i) = (a/sqrt(2))*((1+(2/pi))*sin(pi/(4*a))+((1-(2/pi))*cos(pi/(4*a))));
+        else
+            p(i)=(sin(pi*t(i)/tb*(1-a))+4*a*t(i)/tb*cos(pi*t(i)/tb*(1+a)))/(pi*t(i)/tb* (1-(4*a*t(i)/tb)^2));
+        end
+    end
+end
+
+        
+
