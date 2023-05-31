@@ -1,0 +1,137 @@
+clc 
+close all;
+clear
+
+bit_length = 4000;
+alpha = 0.5;
+T=0.00004;
+Fs = 200000;
+Ts = 1/Fs;
+Nsample = ceil(5*T*Fs);
+Plot_db = 10;
+
+p = SRRC_Pulse(Fs,alpha,1/T);
+figure(1);
+plot(p);
+title("SRRC with roll off factor 0.5");
+xlabel("t");
+ylabel("p(t)");
+Nsim = 80;
+
+EbyN_range = 3:1:12;
+
+k=1;
+
+for EN_db = EbyN_range
+    bit_error = 0;
+    theoryBer=0;
+
+    for index = 1:Nsim
+        %generate 4000 bits
+        rand_bit = randi([0,1],1,bit_length);
+
+        BPSK_sig = 2*rand_bit-1;
+        upsample_bit = upsample(BPSK_sig,ceil(Fs*T));
+
+        txn_sig = conv(upsample_bit,p);
+
+        %pulse shaped wave
+        if EN_db == Plot_db && index == 1
+            figure(2)
+            plot(real(BPSK_sig),imag(BPSK_sig),'r*')
+            grid on;
+            title("Transmitter BPSK Constellation for 10db SNR")
+
+        end    
+
+        %step3
+        %Eb - Energy per bit
+        Eb = sum(p.^2)*Ts;
+
+        %No. of samples in x(t)
+        N = length(txn_sig);
+
+        %Generate ggaussian samples
+        gauss_sample = randn(1,N) + 1j*randn(1,N);
+
+        %N0/2 - Noise power spectral density
+        %EN_db be Eb/N0 in db 
+
+        %To find N0
+        snr_lin = 10^(EN_db/10);
+        N0 = Eb/snr_lin;
+
+        %Noise power - sig_square = N0/2 * Fs
+        noise_power = (N0/2)*Fs;
+
+        %noise signal n(t)
+        noise_sig = gauss_sample.*sqrt(noise_power);
+
+        %Receieved Signal r(t)
+        rxn_sig = txn_sig + noise_sig;
+        %rxn_signal = reshape(rec_sig.*1.[]
+
+
+        RC = conv(p,p);
+        [peak , idx] = max(abs(RC));
+
+        %matched filter response
+        match_resp = conv(rxn_sig,p);
+
+        %figure(3)
+        %plot(match_resp)
+        %title("matched filter response")
+        %xlabel("t")
+        %ylabel("m(t)")
+
+        %Normalised filter response
+        norm_filter = match_resp/peak;
+
+        %figure(4)
+        %plot(norm_filter)
+        %title("Normalised matched filter")
+        %xlabel("t")
+        %ylabel("nm(t)")
+
+        sample_len = ceil(Fs*T);     
+
+        value = [];
+        for idx_ = 0:1:bit_length - 1
+            value(idx_ + 1) = norm_filter(idx + (idx_ * sample_len));
+        end
+
+        if EN_db == Plot_db && index == 1
+            figure(3)
+            plot(real(value),imag(value),'k*')
+            title("Receiver BPSK Constellation for 10db SNR")
+        end
+
+        %decoded value
+        decoded_sig = [real(value)>0];
+        %disp(decoded_sig(1:20))
+        error = (decoded_sig ~= rand_bit);
+        %display sum(error))
+        bit_error = bit_error + sum(error);
+    end
+
+    BER(k) = bit_error/(Nsim*bit_length);
+
+    k = k+1;
+
+end
+  
+snr_lin = 10.^(EbyN_range./10);
+theoryBer = 0.5*erfc(sqrt(snr_lin));
+disp("practical BER")
+disp(BER)
+disp("ideal BER:")
+disp(theoryBer)
+figure(4)
+semilogy(EbyN_range,BER, 'b*-', 'linewidth',1);
+grid on;
+hold on;
+semilogy(EbyN_range,theoryBer, 'r+-', 'linewidth',1);
+grid on;
+title("BER vs Eb/N0 curve for BPSK Modulation")
+xlabel('Eb/N0');
+legend('Practical','Theory');
