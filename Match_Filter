@@ -1,0 +1,93 @@
+clc;
+clear;
+close all;
+ 
+rollOff = 0.4;
+Tb = 1/25000;
+Rb =1/Tb;
+
+Fs = 8*Rb;
+Nsamp = ceil(5*Tb*Fs);
+Ts =1/Fs;
+t = [-Nsamp:Nsamp]*Ts;
+
+p = SRRC_Pulse(Fs,rollOff,Rb);
+
+
+figure(1)
+plot(p)
+title(["Square Root raised Cosine Pulse for Roll of factor", num2str(rollOff)]);
+xlabel("t")
+ylabel('p(t)')
+
+RC = conv(p,p);
+
+figure(2)
+plot(RC)
+title(["Raised Cosine Pulse for Roll of factor", num2str(rollOff)]);
+xlabel("t")
+ylabel('RC(t)')
+
+[peak,idx] = max(abs(RC));
+randBit = randi([0,1],1,20);
+nrzBit = (2*randBit) - 1;
+
+upsampleBit  = upsample(nrzBit,8);
+pulseShape = conv(upsampleBit,p);
+
+figure(3)
+plot(pulseShape)
+title("SRRC Pulse Shaping");
+xlabel("t")
+ylabel('Pulse Shape')
+
+matchedFilterResp = conv(pulseShape,p);
+
+figure(4)
+plot(matchedFilterResp)
+title("Matched Filter Response");
+xlabel("t")
+ylabel("m(t)")
+
+normMatchedFilter = matchedFilterResp/peak;
+
+figure(5)
+plot(normMatchedFilter)
+title("Normalised Matched Filter Response");
+xlabel("t")
+ylabel("m'(t)")
+
+sampLen = Fs/Rb;
+
+value = [];
+for i = 0:19
+    value(i+1) = normMatchedFilter(idx + (i*sampLen));
+end
+
+disp('Transmitted Bits');
+disp(nrzBit);
+disp('Recieved Bits');
+disp(value);
+disp("Error between transmitted and received signal");
+disp(abs(nrzBit-value));
+
+randBit2 = randi([0,1],1,999);
+
+inputBit = 2*randBit2 -1;
+eyeUpSample = upsample(inputBit,8);
+eyePulseShape = conv(eyeUpSample,p);
+eyeMatchedFilter = conv(eyePulseShape,p);
+sampPerWindow = ceil(3*Fs/Rb);
+
+figure(6)
+for i=0:3:320
+    plot(eyeMatchedFilter((i*sampPerWindow)+idx:(i+1)*sampPerWindow + idx));
+    hold on;
+    title("Eye diagram")
+end
+
+
+
+
+
+
