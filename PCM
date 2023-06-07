@@ -2,48 +2,68 @@ clc;
 clear;
 close all;
 
+%initialising input parameters from Question 
 timeDur = 0.002;
 fc = 2000;
 fs = 2000000;
 Ts = 1/fs;
 N = timeDur*fs;
-n = 1:N;
+n = 1:N;  %A Row Matrix that stores 1 to N numbers
 
-sampleSine = 2+2*sin(2*pi*fc/fs*n);
+
+%Generating a sample sine wave
+sampleSine = 2+2*sin(2*pi*fc/fs*n)   %2 is added to clamp it higher than 0 level
+
+%plot sample Sine wave 
 figure(1)
 plot(sampleSine)
 xlabel("time in Sec")
 ylabel('amplitude')
 title('sinewave')
+
+%signal Power is calculated by adding square of each element in sampleSine
+%row matrix and divided by number of elements in the row
 signalPower = (1/N)*sum(sampleSine.^2);
 
+
+%This is to create bunch of Quantization levels and number of level is
+%controlled by i ,  higher the value of i more the number of steps and more
+%accurate waveform is obtained
 for i = 1:10
-    vMax = max(sampleSine);
-    vMin = min(sampleSine);
-    delta = (vMax-vMin)/(2^i);
-    levels = 2^i;
-    q1 = floor(sampleSine./delta)*delta;
-    q2 = (q1+(delta/2));
-    maxLvl = vMax-(delta/2);
-    qSine = min(q2,maxLvl);
-
-
+    vMax = max(sampleSine); %this finds the maximum value of the sample sine wave
+    vMin = min(sampleSine); %this stores the minimum value of the sample sine wave 
+    levels = 2^i; %this defines the number of steps when i is given
+    delta = (vMax-vMin)/(levels);  %this is the length of each step (total length divided by length of 1 step)
+    
+    q1 = floor(sampleSine./delta)*delta; %This technique helps to round to number like 3.5 ,else ,it rounds to a whole number
+    q2 = (q1+(delta/2));    %this value is, a quantization level + half of step size, that gives midpoint of the step
+    maxLvl = vMax-(delta/2); %this is the midpoint of top most step ,here, it is 3.5
+    qSine = min(q2,maxLvl); % this is the points of the quantized sine wave , it takes the minimum of both, since we dont wants steps to go up forever
+                            % once it reaches above maxLvl ,its clipped to maxLvl   
+    
+    %plot all the waveform of different i
     figure(2)
+    subplot(5,2,i)
     plot(qSine)
     title("quantized wave")
     xlabel('time')
     ylabel('quantized value')
-    qError = abs(sampleSine - qSine);
-    noisePower = (1/N)*sum(qError.^2);
-    SnrDb(i) = 10*log10(signalPower/noisePower);
+    
+    qError = abs(sampleSine - qSine); %each point of orginal and quantized sine is taken and absolute difference between them is found
+    noisePower = (1/N)*sum(qError.^2); %power of this error signal is found
+    SnrDb(i) = 10*log10(signalPower/noisePower); %each value is converted into Db scale 10log(signal to noise ratio)
 
-    if i==5
-        quantNew = qSine;
-        step = (quantNew - (delta/2))/delta;
-        stepBin = dec2bin(step,i)-48;
+    if i==5 %as per question ,for quantisation wave for  i = 5 is selected
+        quantNew = qSine; %creating a copy of the row matrix
+        step = (quantNew - (delta/2))/delta; %here the delta/2 added in q2 and maxLvl is reduced and divided by delta to get quantization levels
+        stepBin = dec2bin(step,i)-48; %convert quantization levels into binary, dec2bin gives a string (eg:"1001") to convert it to number, it is substracted with 48 (ASCII of 0), "0" will give 0 and "1"(ASCII of 1 is 49) will give 1 as the result
+                                      
+                                     
     end
 end
-bits = 1:10;
+
+
+bits = 1:10; %defining a range of numbers for ploting
 figure(3)
 plot(bits,SnrDb)
 title("number of bits vs snr in DB")
@@ -51,29 +71,38 @@ xlabel('number of bits')
 ylabel('amplitude')
 
 nrz =[];
-nrz = 2*(2*stepBin-1);
-nrzt = nrz.';
-nrzRow = reshape(nrzt,1,[]);
+nrz = 2*(2*stepBin-1); %converts 0 to -2 and 1 into +2
+nrzt = nrz.'; %our data is in rows ,it is transposed to store in columns 
+nrzRow = reshape(nrzt,1,[]); %this column data is then taken and stored in a single row matrix for transmission
 figure(4)
-stem(nrzRow(1:50))
-title('enclosed signal of bit 5')
+stem(nrzRow(1:50)) %plotting encoder signal 
+title('encoded signal of bit 5')
 xlabel('time in sec')
 ylabel('amplitude')
 
-decode = zeros(1,length(nrzRow));
-for i =1:length(nrzRow)
 
-    if nrzRow(i)>0
+%decoder section
+decode = zeros(1,length(nrzRow)); %declare an all 0 row matrix
+for i =1:length(nrzRow) 
+
+    if nrzRow(i)>0   %converts 2 in the signal to 1
         decode(i) = 1;
     else
-        decode(i)=0;
+        decode(i)=0; %converts -2 in the signal to 0
     end
 end
+
+ %convert back to representing data in columns(5 rows) ,this step is to undo nrzt = nrz.' and nrzRow = reshape(nrzt,1,[])
 decRow = reshape(decode,5,[]);
+nrzRow = reshape(nrzt,1,[]);
 decCol = decRow.';
+
+%data is in rows and in binary , this can be converted to decimal value in
+%this section
 bit = [16;8;4;2;1];
 decodeSignal = decCol*bit;
 
+%plotting decoded signal
 figure(5)
 stairs(decodeSignal(1:2000));
 xlabel("time in sec")
