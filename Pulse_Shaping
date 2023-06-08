@@ -2,9 +2,10 @@ clc;
 clear ;
 close all;
 
-color=['b','r','g','c','k'];
-alphaValues=[0.3 0.5 0.7 0.9 1];
+color=['b','r','g','c','k']; %defining the sequence of colors for plotting purpose
+alphaValues=[0.3 0.5 0.7 0.9 1]; %specified roll off factors
 
+%initialising given values
 nfft = 1000;
 k = -(nfft/2 - 1):nfft/2;
 
@@ -13,16 +14,18 @@ FS = 8*rb;
 fk = (FS/nfft).*k;
 tb = 1/rb;
 ts = 1/FS;
-nsamp = ceil(5*tb*FS);
-t = [-nsamp:nsamp]*ts;
+nsamp = ceil(5*tb*FS);  % time to transmit 1 bit multiplied by sampling frequency
+t = [-nsamp:nsamp]*ts;  %creates an row matrix filled with time t where sampling takes place
 j=1;
 
 for alpha = alphaValues
 
-    res = SRRC_Pulse(FS,alpha,rb);
-    rc = conv(res,res);
-    rc_f=fftshift(fft(rc,nfft));
-    rc_mag = 20*log(abs(rc_f));
+    res = SRRC_Pulse(FS,alpha,rb); %calculating square root raised cosine for each alpha value
+    rc = conv(res,res); %the SRRC pulse is convoluted with itself ,convolution in time domain is multiplication in freq domain,so to get raised cosine pulse we find square of SRRC pulse in freq domain
+    rc_f=fftshift(fft(rc,nfft)); %the fast fourier transform is calculated for the nfft' th point fft
+    rc_mag = 20*log(abs(rc_f)); %magnitude of the sequence is found in db scale after its absolute value is taken
+
+    %plotting all 3 waveforms
     figure(1)
     plot(t,res,color(j));
     title('square root raised cosine')
@@ -45,11 +48,12 @@ for alpha = alphaValues
     hold on;
     j = j+1;
 end
+%labeling each color as different roll off factor
 figure(1)
 legend('0.3','0.5','0.7','0.9','1');
 figure(2)
 legend('0.3','0.5','0.7','0.9','1');
-figure(3)
+figure(1)
 legend('0.3','0.5','0.7','0.9','1');
 
 
@@ -58,12 +62,14 @@ legend('0.3','0.5','0.7','0.9','1');
 oversamplingFactor = 8;
 alpha = 0.4;
 
-inputBit = 2*randi([0,1],1,15)-1;
-inputBitOs = upsample(inputBit,oversamplingFactor);
+inputBit = 2*randi([0,1],1,15)-1; %a random bit sequence of 15 bits is createdout of either 1 or 0,then multiplied by 2 and substracted with one to convert 0 as -1 and 1 as 1 itself
+inputBitOs = upsample(inputBit,oversamplingFactor); %the sequence is upsampled to give more points for us to work with and to match the size of sequence for convolution
 
-pt = SRRC_Pulse(FS,alpha,rb);
+pt = SRRC_Pulse(FS,alpha,rb); %SRRC pulse is generated
 
-op_srrc = conv(inputBitOs,pt);
+op_srrc = conv(inputBitOs,pt); %both are convoluted to get the magnitude response of the filter
+
+%plot the response curve
 figure(4)
 plot(op_srrc);
 title("Response of SRRC Filter")
